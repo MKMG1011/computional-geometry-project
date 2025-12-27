@@ -105,30 +105,3 @@ class QuadTree:
 
         return found_points
 
-
-import random
-
-# 1. Tworzymy główny obszar (np. ekran 400x400)
-# Środek w (200, 200), połowa szerokości 200 (czyli od 0 do 400)
-boundary = Rectangle(200, 200, 200, 200)
-
-# 2. Tworzymy drzewo (Capacity=4 oznacza, że 5-ty punkt spowoduje podział na ćwiartki)
-qt = QuadTree(boundary, 4)
-
-# 3. Wstawiamy losowe punkty
-for i in range(100):
-    p = Point(random.randint(0, 400), random.randint(0, 400))
-    qt.insert(p)
-
-print("Drzewo zbudowane!")
-
-# 4. ZADANIE Z PROJEKTU: Wyszukiwanie ortogonalne
-# Szukamy punktów w prostokącie: x od 100 do 200, y od 100 do 200
-# Definiujemy ten obszar (środek 150,150, wymiary połówkowe 50,50)
-search_area = Rectangle(150, 150, 50, 50)
-znalezione = []
-qt.query(search_area, znalezione)
-
-print(f"Znaleziono {len(znalezione)} punktów w zadanym obszarze.")
-for p in znalezione:
-    print(f"Punkt: ({p.x}, {p.y})")
