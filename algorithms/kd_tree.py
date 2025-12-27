@@ -1,104 +1,186 @@
-import math
-
 class Node:
-    """
-    Pojedynczy element drzewa.
-    Przechowuje punkt (x, y), oś podziału oraz linki do dzieci.
-    """
-    def __init__(self, point, axis, left=None, right=None):
-        self.point = point  # Krotka (x, y)
-        self.axis = axis    # 0 dla X, 1 dla Y
-        self.left = left    # Lewe dziecko (mniejsze od point)
-        self.right = right  # Prawe dziecko (większe od point)
+    def __init__(self, point, axis, left=None, right=None, bbox=None):
+        self.point = point      # (x, y)
+        self.axis = axis        # 0 -> x, 1 -> y
+        self.left = left
+        self.right = right
+        self.bbox = bbox        # (x_min, x_max, y_min, y_max)
+
+
+def point_in_rect(p, r):
+    x, y = p
+    x_min, x_max, y_min, y_max = r
+    return (x_min <= x <= x_max) and (y_min <= y <= y_max)
+
+
+def rects_intersect(a, b):
+    ax_min, ax_max, ay_min, ay_max = a
+    bx_min, bx_max, by_min, by_max = b
+    return not (ax_max < bx_min or bx_max < ax_min or ay_max < by_min or by_max < ay_min)
+
 
 class KDTree:
-    def __init__(self, points):
-        """
-        Tworzy drzewo na podstawie listy punktów.
-        """
-        # Główny korzeń drzewa
-        self.root = self._build_tree(points, depth=0)
+    """
+    Static 2D KD-tree (wersja A):
+      - build once, query many
+      - budowa O(n log n): presort po x i po y + liniowe partycjonowanie
+      - range query z bbox pruning + pruning po osi splitu
+      - działa poprawnie także dla duplikatów (używa wewnętrznych id)
+    """
 
-    def _build_tree(self, points, depth):
-        """
-        Rekurencyjna funkcja budująca drzewo.
-        Dzieli zbiór punktów na pół, wybierając medianę.
-        """
-        if not points:
+    def __init__(self, points):
+        self.points = list(points)
+
+        # wewnętrznie: (x, y, id) żeby nie psuły się duplikaty
+        pts = [(p[0], p[1], i) for i, p in enumerate(self.points)]
+        pts_x = sorted(pts, key=lambda t: (t[0], t[1], t[2]))  # sort po x
+        pts_y = sorted(pts, key=lambda t: (t[1], t[0], t[2]))  # sort po y
+
+        self.root = self._build(pts_x, pts_y, depth=0)
+
+    # -------------------- build --------------------
+
+    def _build(self, pts_x, pts_y, depth):
+        n = len(pts_x)
+        if n == 0:
             return None
 
-        # 1. Wybierz oś podziału (0 = X, 1 = Y) na podstawie głębokości
         axis = depth % 2
+        mid = n // 2
 
-        # 2. Posortuj punkty względem wybranej osi
-        # Dzięki temu łatwo znajdziemy środek (medianę)
-        # key=lambda p: p[axis] oznacza: sortuj po X jeśli axis=0, po Y jeśli axis=1
-        points.sort(key=lambda p: p[axis])
+        if axis == 0:
+            # pivot z listy posortowanej po x
+            px, py, pid = pts_x[mid]
+            left_x = pts_x[:mid]
+            right_x = pts_x[mid + 1:]
 
-        # 3. Wybierz środkowy element (Mediana)
-        mid = len(points) // 2
-        median_point = points[mid]
+            left_ids = set(t[2] for t in left_x)
 
-        # 4. Stwórz węzeł i rekurencyjnie zbuduj dzieci
-        # Wszystko przed środkiem idzie do lewego, wszystko po środku do prawego
-        return Node(
-            point=median_point,
-            axis=axis,
-            left=self._build_tree(points[:mid], depth + 1),
-            right=self._build_tree(points[mid + 1:], depth + 1)
-        )
+            # pts_y dzielone liniowo, zachowując posortowanie po y
+            left_y = [t for t in pts_y if t[2] in left_ids]
+            right_y = [t for t in pts_y if (t[2] not in left_ids) and (t[2] != pid)]
 
-    def search_range(self, x_min, x_max, y_min, y_max):
-        """
-        Publiczna metoda do wyszukiwania punktów w prostokącie.
-        """
-        results = []
-        # Definiujemy obszar szukania jako [x_min, x_max] x [y_min, y_max]
-        range_bounds = (x_min, x_max, y_min, y_max)
-        self._search_recursive(self.root, range_bounds, results)
-        return results
+            node = Node(point=(px, py), axis=axis)
+            node.left = self._build(left_x, left_y, depth + 1)
+            node.right = self._build(right_x, right_y, depth + 1)
+            node.bbox = self._compute_bbox(node)
+            return node
 
-    def _search_recursive(self, node, bounds, results):
-        """
-        Wewnętrzna funkcja rekurencyjna do przeszukiwania drzewa.
-        To tutaj dzieje się magia "odcinania" (pruning).
-        """
+        else:
+            # pivot z listy posortowanej po y
+            px, py, pid = pts_y[mid]
+            left_y = pts_y[:mid]
+            right_y = pts_y[mid + 1:]
+
+            left_ids = set(t[2] for t in left_y)
+
+            # pts_x dzielone liniowo, zachowując posortowanie po x
+            left_x = [t for t in pts_x if t[2] in left_ids]
+            right_x = [t for t in pts_x if (t[2] not in left_ids) and (t[2] != pid)]
+
+            node = Node(point=(px, py), axis=axis)
+            node.left = self._build(left_x, left_y, depth + 1)
+            node.right = self._build(right_x, right_y, depth + 1)
+            node.bbox = self._compute_bbox(node)
+            return node
+
+    def _compute_bbox(self, node):
+        x, y = node.point
+        x_min = x_max = x
+        y_min = y_max = y
+
+        for ch in (node.left, node.right):
+            if ch is None or ch.bbox is None:
+                continue
+            cx_min, cx_max, cy_min, cy_max = ch.bbox
+            x_min = min(x_min, cx_min)
+            x_max = max(x_max, cx_max)
+            y_min = min(y_min, cy_min)
+            y_max = max(y_max, cy_max)
+
+        return (x_min, x_max, y_min, y_max)
+
+    # -------------------- range query --------------------
+
+    def range_query(self, x_min, x_max, y_min, y_max):
+        r = (x_min, x_max, y_min, y_max)
+        out = []
+        self._range_query_node(self.root, r, out)
+        return out
+
+    def _range_query_node(self, node, r, out):
         if node is None:
             return
 
-        x_min, x_max, y_min, y_max = bounds
+        # 1) bbox pruning
+        if node.bbox is not None and not rects_intersect(node.bbox, r):
+            return
+
+        # 2) punkt węzła
+        if point_in_rect(node.point, r):
+            out.append(node.point)
+
+        # 3) pruning po osi splitu
+        x_min, x_max, y_min, y_max = r
         px, py = node.point
-        axis = node.axis
 
-        # 1. Sprawdź, czy AKTUALNY punkt węzła leży w szukanym prostokącie
-        if x_min <= px <= x_max and y_min <= py <= y_max:
-            results.append(node.point)
+        if node.axis == 0:
+            # split po x = px
+            if x_min <= px:
+                self._range_query_node(node.left, r, out)
+            if px <= x_max:
+                self._range_query_node(node.right, r, out)
+        else:
+            # split po y = py
+            if y_min <= py:
+                self._range_query_node(node.left, r, out)
+            if py <= y_max:
+                self._range_query_node(node.right, r, out)
 
-        # 2. Decyzja: Gdzie iść dalej? (Logika odcinania gałęzi)
-        
-        # Pobieramy współrzędną punktu, która decyduje o podziale (x lub y)
-        current_val = px if axis == 0 else py
-        
-        # Pobieramy granice szukanego obszaru dla tej osi
-        # Jeśli axis=0 (X), to interesuje nas x_min i x_max
-        search_min = x_min if axis == 0 else y_min
-        search_max = x_max if axis == 0 else y_max
+    # -------------------- helpers for visualization --------------------
 
-        # ZASADA 1: Idź w LEWO tylko jeśli obszar szukania przecina się z lewą stroną
-        # Czyli: początek szukanego obszaru (search_min) musi być mniejszy lub równy linii podziału
-        if search_min <= current_val:
-            self._search_recursive(node.left, bounds, results)
+    def global_bbox(self):
+        return None if self.root is None else self.root.bbox
 
-        # ZASADA 2: Idź w PRAWO tylko jeśli obszar szukania przecina się z prawą stroną
-        # Czyli: koniec szukanego obszaru (search_max) musi być większy lub równy linii podziału
-        if search_max >= current_val:
-            self._search_recursive(node.right, bounds, results)
+    def split_segments(self):
+        """
+        Zwraca listę segmentów podziału:
+          [ ((x1,y1),(x2,y2), depth), ... ]
+        Segmenty są przycięte do regionu węzła.
+        """
+        if self.root is None:
+            return []
+        segs = []
+        self._collect_segments(self.root, self.root.bbox, depth=0, out=segs)
+        return segs
+
+    def _collect_segments(self, node, region, depth, out):
+        if node is None:
+            return
+
+        x_min, x_max, y_min, y_max = region
+        px, py = node.point
+
+        if node.axis == 0:
+            # pion: x = px na całej wysokości regionu
+            out.append(((px, y_min), (px, y_max), depth))
+            left_region = (x_min, px, y_min, y_max)
+            right_region = (px, x_max, y_min, y_max)
+        else:
+            # poziom: y = py na całej szerokości regionu
+            out.append(((x_min, py), (x_max, py), depth))
+            left_region = (x_min, x_max, y_min, py)
+            right_region = (x_min, x_max, py, y_max)
+
+        self._collect_segments(node.left, left_region, depth + 1, out)
+        self._collect_segments(node.right, right_region, depth + 1, out)
+
 
 # --- Przykład użycia (do testów) ---
 if __name__ == "__main__":
-    punkty = [(2, 3), (5, 4), (9, 6), (4, 7), (8, 1), (7, 2)]
+    punkty = [(2, 3), (5, 4), (9, 6), (4, 7), (8, 1), (7, 2), (4, 2)]
     drzewo = KDTree(punkty)
     
     # Szukamy punktów w prostokącie x=[0, 6], y=[0, 5]
-    znalezione = drzewo.search_range(0, 6, 0, 5)
+    znalezione = drzewo.range_query(0, 6, 0, 5)
     print(f"Punkty w obszarze: {znalezione}")
