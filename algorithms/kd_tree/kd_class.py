@@ -1,5 +1,5 @@
+# klasa reprezentująca węzeł drzewa KD, może być liściem lub węzłem wewnętrznym
 class Node:
-    # Leaf-storage: leaf has point, internal node has (axis, split_val) and children
     def __init__(self, point=None, left=None, right=None, split_val=None, axis=None):
         self.point = point
         self.left = left
@@ -21,7 +21,7 @@ class KDTree:
 
         pts = [(x, y, i) for i, (x, y) in enumerate(points)]
 
-        # Tie-breakers for determinism
+        # sortowanie punktów według x i y, żeby ułtwić budowę drzewa
         P_x = sorted(pts, key=lambda p: (p[0], p[1], p[2]))
         P_y = sorted(pts, key=lambda p: (p[1], p[0], p[2]))
 
@@ -33,7 +33,7 @@ class KDTree:
             return None
         if n == 1:
             x, y, _ = P_x[0]
-            return Node(point=(x, y))
+            return Node(point=(x, y)) # stworzenie liścia
 
         axis = depth % 2
         mid = (n - 1) // 2
@@ -55,9 +55,10 @@ class KDTree:
             P1_x = [p for p in P_x if p[2] in left_ids]
             P2_x = [p for p in P_x if p[2] not in left_ids]
 
+        # Rekurencyjne budowanie lewego i prawego poddrzewa
         left = self._build_rec(P1_x, P1_y, depth + 1)
         right = self._build_rec(P2_x, P2_y, depth + 1)
-        return Node(left=left, right=right, split_val=split_val, axis=axis)
+        return Node(left=left, right=right, split_val=split_val, axis=axis) # stworzenie węzła wewnętrznego
 
     def query(self, region):
         if self.root is None:
@@ -70,7 +71,8 @@ class KDTree:
         root_region = (-inf, inf, -inf, inf)
         self._search_rec(self.root, (x_min, x_max, y_min, y_max), root_region, results)
         return results
-
+    
+    # funkcja rekurencyjnie dodająca punkty z poddrzewa do wyników
     def _report_subtree(self, node, results):
         if node is None:
             return
@@ -96,8 +98,7 @@ class KDTree:
         min_x, max_x, min_y, max_y = region_v
         split = v.split_val
 
-        # Left is closed (<= split), right is open (> split) conceptually.
-        # We model the "open" side via EPS in tests.
+        # lewy podobszar określamy jako domknięty, prawy jako otwwarty
 
         if v.axis == 0:
             region_lc = (min_x, split, min_y, max_y)
@@ -106,40 +107,41 @@ class KDTree:
             region_lc = (min_x, max_x, min_y, split)
             region_rc = (min_x, max_x, split, max_y)
 
+        # Funkcja określająca relację między regionem zapytania a regionem poddrzewa
         def classify(reg, is_right_child):
             r_xmin, r_xmax, r_ymin, r_ymax = reg
 
-            # INSIDE: reg ⊆ R
+            # INSIDE
             if (r_xmin >= rx_min - EPS and r_xmax <= rx_max + EPS and
                 r_ymin >= ry_min - EPS and r_ymax <= ry_max + EPS):
                 return "INSIDE"
 
-            # OUTSIDE: reg ∩ R = ∅
+            # OUTSIDE
             if r_xmax < rx_min - EPS or r_xmin > rx_max + EPS or r_ymax < ry_min - EPS or r_ymin > ry_max + EPS:
                 return "OUTSIDE"
 
-            # Extra pruning for the open boundary on the right child:
-            # If the query touches the split line but doesn't go past it, right side shouldn't be visited.
+            # uniemożliwenie wejścia na prawą stronę regionu jeśli zapytanie tam nie sięga
             if is_right_child:
                 if v.axis == 0:
-                    if rx_max <= split + EPS:  # query does not reach x > split
+                    if rx_max <= split + EPS:  # zapytanie nie obejmuje x > split
                         return "OUTSIDE"
                 else:
-                    if ry_max <= split + EPS:  # query does not reach y > split
+                    if ry_max <= split + EPS:  # zapytanie nie obejmuje y > split
                         return "OUTSIDE"
 
             return "INTERSECTS"
 
-        st = classify(region_lc, is_right_child=False)
-        if st == "INSIDE":
+        # Klasyfikujemy lewe i prawe poddrzewo na podstawie przecięć ich regionów z zapytaniem
+        status = classify(region_lc, is_right_child=False)
+        if status == "INSIDE":
             self._report_subtree(v.left, results)
-        elif st == "INTERSECTS":
+        elif status == "INTERSECTS":
             self._search_rec(v.left, R, region_lc, results)
 
-        st = classify(region_rc, is_right_child=True)
-        if st == "INSIDE":
+        status = classify(region_rc, is_right_child=True)
+        if status == "INSIDE":
             self._report_subtree(v.right, results)
-        elif st == "INTERSECTS":
+        elif status == "INTERSECTS":
             self._search_rec(v.right, R, region_rc, results)
 
 
