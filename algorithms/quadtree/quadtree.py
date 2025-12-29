@@ -86,3 +86,15 @@ class QuadTree:
             self.southeast.query(range, found_points)
 
         return found_points
+
+def build_quadtree(points_list, boundary, capacity=4):
+    qt = QuadTree(boundary, capacity)
+    for p_data in points_list:
+        if isinstance(p_data, (tuple, list)):
+            p = Point(p_data[0], p_data[1])
+        else:
+            p = p_data
+            
+        qt.insert(p)
+
+    return qt

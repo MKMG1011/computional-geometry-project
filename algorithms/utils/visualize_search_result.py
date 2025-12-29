@@ -1,0 +1,111 @@
+from algorithms.quadtree.quadtree import QuadTree, Rectangle, Point, build_quadtree
+from algorithms.quadtree.quadtree_visualization import quadtree_vis
+from algorithms.quadtree.quadtree_query_visualization import visualize_quadtree_query
+from algorithms.kd_tree.kd_class import *
+from algorithms.kd_tree.kd_build_visualization import *
+from algorithms.kd_tree.kd_query_visualization import * 
+
+def visualize_search_result(points, search_area, found_points, algorithm='quadtree'):
+    vis = Visualizer()
+    
+    screen_boundary = Rectangle(400, 400, 400, 400)
+    k = 4
+    min_screen, max_screen = 0, 800 
+
+    points_objects = []
+    kdtree_points = []
+    
+    for p_data in points:
+        if isinstance(p_data, (tuple, list)):
+            p_obj = Point(p_data[0], p_data[1])
+            points_objects.append(p_obj)
+            kdtree_points.append((p_data[0], p_data[1]))
+        else:
+            points_objects.append(p_data)
+            kdtree_points.append((p_data.x, p_data.y))
+
+    vis_coords = [(p.x, p.y) for p in points_objects]
+    vis.add_point(vis_coords, color='blue')
+
+    bx, by, bw, bh = screen_boundary.x, screen_boundary.y, screen_boundary.w, screen_boundary.h
+    p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
+    p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
+    vis.add_line_segment(((p1, p2)), color='black')
+    vis.add_line_segment(((p2, p3)), color='black')
+    vis.add_line_segment(((p3, p4)), color='black')
+    vis.add_line_segment(((p4, p1)), color='black')
+
+    if algorithm == 'quadtree':
+        qt = QuadTree(screen_boundary, k)
+        for p in points_objects:
+            qt.insert(p)
+
+        queue = deque([qt])
+        grid_lines = []
+        
+        while queue:
+            node = queue.popleft()
+            if node.divided:
+                nx, ny = node.boundary.x, node.boundary.y
+                nw, nh = node.boundary.w, node.boundary.h
+                grid_lines.append(((nx - nw, ny), (nx + nw, ny)))
+                grid_lines.append(((nx, ny - nh), (nx, ny + nh)))
+                
+                queue.append(node.northeast)
+                queue.append(node.northwest)
+                queue.append(node.southeast)
+                queue.append(node.southwest)
+        
+        vis.add_line_segment(grid_lines, color='lightgray', linewidth=1)
+
+    elif algorithm == 'kdtree':
+        tree = KDTree(kdtree_points)
+        if tree.root:
+            queue = deque([(tree.root, min_screen, max_screen, min_screen, max_screen)])
+            kd_lines = []
+
+            while queue:
+                node, x_min, x_max, y_min, y_max = queue.popleft()
+                
+                if node.left is None and node.right is None:
+                    continue
+
+                if node.axis == 0: 
+                    split = node.split_val
+                    kd_lines.append(((split, y_min), (split, y_max)))
+                    if node.left:
+                        queue.append((node.left, x_min, split, y_min, y_max))
+                    if node.right:
+                        queue.append((node.right, split, x_max, y_min, y_max))
+                else: 
+                    split = node.split_val
+                    kd_lines.append(((x_min, split), (x_max, split)))
+                    if node.left:
+                        queue.append((node.left, x_min, x_max, y_min, split))
+                    if node.right:
+                        queue.append((node.right, x_min, x_max, split, y_max))
+            
+            vis.add_line_segment(kd_lines, color='lightgray', linewidth=1)
+
+    qx, qy, qw, qh = search_area.x, search_area.y, search_area.w, search_area.h
+    q_p1 = (qx - qw, qy - qh)
+    q_p2 = (qx + qw, qy - qh)
+    q_p3 = (qx + qw, qy + qh)
+    q_p4 = (qx - qw, qy + qh)
+    
+    query_lines = [
+        (q_p1, q_p2), (q_p2, q_p3), (q_p3, q_p4), (q_p4, q_p1)
+    ]
+    vis.add_line_segment(query_lines, color='purple', linewidth=2)
+
+    if found_points:
+        found_coords = []
+        for p_data in found_points:
+            if isinstance(p_data, (tuple, list)):
+                found_coords.append((p_data[0], p_data[1]))
+            else:
+                found_coords.append((p_data.x, p_data.y))
+        
+        vis.add_point(found_coords, color='green', s=30)
+
+    return vis
