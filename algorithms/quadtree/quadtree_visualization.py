@@ -2,17 +2,17 @@ from collections import deque
 from visualizer.main import Visualizer
 from algorithms.quadtree import QuadTree, Rectangle
 
-def quadtree_vis(points_list):
+def quadtree_vis(points_list, boundary, k):
     vis = Visualizer()
-    boundary = Rectangle(400, 400, 400, 400)
-    qt = QuadTree(boundary, 4)
+    #boundary = Rectangle(400, 400, 400, 400)
+    qt = QuadTree(boundary, k)
 
     for p in points_list:
         qt.insert(p)
 
     all_points_tuples = [(p.x, p.y) for p in points_list]
     vis.add_point(all_points_tuples, color="blue")
-
+    
     bx, by, bw, bh = boundary.x, boundary.y, boundary.w, boundary.h
     p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
     p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)

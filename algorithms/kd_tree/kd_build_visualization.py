@@ -1,8 +1,8 @@
 from collections import deque
 from visualizer.main import Visualizer
-from kd_class import KDTree 
+from algorithms.kd_tree.kd_class import KDTree 
 
-def kdtree_vis(points_list, tree=None):
+def kd_build_visualization(points_list, tree=None):
     """
     Tworzy wizualizację KD-Tree używając BitAlgo Visualizer.
     
