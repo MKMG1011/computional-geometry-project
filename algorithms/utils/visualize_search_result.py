@@ -1,17 +1,11 @@
+from collections import deque
+from visualizer.main import Visualizer
 from algorithms.quadtree.quadtree import QuadTree, Rectangle, Point, build_quadtree
-from algorithms.quadtree.quadtree_visualization import quadtree_vis
-from algorithms.quadtree.quadtree_query_visualization import visualize_quadtree_query
-from algorithms.kd_tree.kd_class import *
-from algorithms.kd_tree.kd_build_visualization import *
-from algorithms.kd_tree.kd_query_visualization import * 
+from algorithms.kd_tree.kd_class import KDTree 
 
 def visualize_search_result(points, search_area, found_points, algorithm='quadtree'):
     vis = Visualizer()
     
-    screen_boundary = Rectangle(400, 400, 400, 400)
-    k = 4
-    min_screen, max_screen = 0, 800 
-
     points_objects = []
     kdtree_points = []
     
@@ -27,18 +21,20 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
     vis_coords = [(p.x, p.y) for p in points_objects]
     vis.add_point(vis_coords, color='blue')
 
-    bx, by, bw, bh = screen_boundary.x, screen_boundary.y, screen_boundary.w, screen_boundary.h
-    p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
-    p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
-    vis.add_line_segment(((p1, p2)), color='black')
-    vis.add_line_segment(((p2, p3)), color='black')
-    vis.add_line_segment(((p3, p4)), color='black')
-    vis.add_line_segment(((p4, p1)), color='black')
-
     if algorithm == 'quadtree':
-        qt = QuadTree(screen_boundary, k)
-        for p in points_objects:
-            qt.insert(p)
+        # Tu używamy build_quadtree, więc boundary oblicza się samo
+        qt = build_quadtree(points_objects, capacity=4)
+
+        bx, by, bw, bh = qt.boundary.x, qt.boundary.y, qt.boundary.w, qt.boundary.h
+        p1 = (bx - bw, by - bh)
+        p2 = (bx + bw, by - bh)
+        p3 = (bx + bw, by + bh)
+        p4 = (bx - bw, by + bh)
+
+        vis.add_line_segment((p1, p2), color='black')
+        vis.add_line_segment((p2, p3), color='black')
+        vis.add_line_segment((p3, p4), color='black')
+        vis.add_line_segment((p4, p1), color='black')
 
         queue = deque([qt])
         grid_lines = []
@@ -59,6 +55,14 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
         vis.add_line_segment(grid_lines, color='lightgray', linewidth=1)
 
     elif algorithm == 'kdtree':
+        min_screen, max_screen = 0, 800
+        
+        # Ramka ekranu dla KD-Tree (bo ono nie ma boundary w sobie)
+        vis.add_line_segment(((0, 0), (800, 0)), color='black')
+        vis.add_line_segment(((800, 0), (800, 800)), color='black')
+        vis.add_line_segment(((800, 800), (0, 800)), color='black')
+        vis.add_line_segment(((0, 800), (0, 0)), color='black')
+
         tree = KDTree(kdtree_points)
         if tree.root:
             queue = deque([(tree.root, min_screen, max_screen, min_screen, max_screen)])

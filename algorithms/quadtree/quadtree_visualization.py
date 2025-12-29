@@ -1,27 +1,26 @@
 from collections import deque
 from visualizer.main import Visualizer
-from algorithms.quadtree.quadtree import QuadTree, Rectangle, Point
+from algorithms.quadtree.quadtree import build_quadtree
 
-def quadtree_vis(raw_points_list, boundary, k):
+def quadtree_vis(raw_points_list, k=4):
     vis = Visualizer()
     
-    points_objects = []
-    for p_data in raw_points_list:
-        if isinstance(p_data, (tuple, list)):
-            points_objects.append(Point(p_data[0], p_data[1]))
+    qt = build_quadtree(raw_points_list, k)
+
+    vis_points = []
+    for p in raw_points_list:
+        if isinstance(p, (tuple, list)):
+            vis_points.append(p)
         else:
-            points_objects.append(p_data)
+            vis_points.append((p.x, p.y))
+            
+    vis.add_point(vis_points, color="blue")
 
-    qt = QuadTree(boundary, k)
-    for p in points_objects:
-        qt.insert(p)
-
-    vis_coords = [(p.x, p.y) for p in points_objects]
-    vis.add_point(vis_coords, color="blue")
-
-    bx, by, bw, bh = boundary.x, boundary.y, boundary.w, boundary.h
-    p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
-    p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
+    bx, by, bw, bh = qt.boundary.x, qt.boundary.y, qt.boundary.w, qt.boundary.h
+    p1 = (bx - bw, by - bh)
+    p2 = (bx + bw, by - bh)
+    p3 = (bx + bw, by + bh)
+    p4 = (bx - bw, by + bh)
 
     vis.add_line_segment((p1, p2), color="black")
     vis.add_line_segment((p2, p3), color="black")
