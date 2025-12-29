@@ -2,18 +2,13 @@ from collections import deque
 from visualizer.main import Visualizer
 from algorithms.kd_tree.kd_class import KDTree 
 
-def kd_build_visualization(points_list, tree=None):
+def kd_build_visualization2(points_list, tree=None):
     """
-    Tworzy wizualizację KD-Tree używając BitAlgo Visualizer.
-    
-    Args:
-        points_list: lista krotek (x, y) lub obiektów Point
-        tree: (opcjonalnie) gotowe drzewo. Jeśli None, zbuduje nowe.
+    Tworzy wizualizację KD-Tree (wariant Leaf-Storage) używając BitAlgo Visualizer.
     """
     vis = Visualizer()
     
     # 1. Konwersja punktów na listę krotek (x, y)
-    # Obsługuje zarówno obiekty Point (jak u kolegi), jak i krotki
     points_tuples = []
     for p in points_list:
         if hasattr(p, 'x') and hasattr(p, 'y'):
@@ -25,66 +20,68 @@ def kd_build_visualization(points_list, tree=None):
     if tree is None:
         tree = KDTree(points_tuples)
 
-    # 3. Rysowanie wszystkich punktów (niebieskie)
-    vis.add_point(points_tuples, color="blue", s=3)
-
-    # 4. Rysowanie granic świata (opcjonalne, ale ładne)
-    # Znajdujemy min/max żeby wiedzieć jak duży jest obszar
+    # 3. Obliczanie granic świata (Bounding Box)
+    # Potrzebujemy tego, żeby wiedzieć, dokąd rysować linie podziału
     if points_tuples:
         xs = [p[0] for p in points_tuples]
         ys = [p[1] for p in points_tuples]
         min_x, max_x = min(xs), max(xs)
         min_y, max_y = min(ys), max(ys)
         
-        # Margines
-        pad = 10
+        # Dodajemy margines (padding), żeby linie nie kończyły się idealnie na punktach skrajnych
+        pad = 20
         min_x -= pad; max_x += pad
         min_y -= pad; max_y += pad
         
-        # Ramka dookoła wszystkiego
+        # Opcjonalnie: Rysowanie ramki dookoła całego obszaru
         p1, p2 = (min_x, min_y), (max_x, min_y)
         p3, p4 = (max_x, max_y), (min_x, max_y)
-        vis.add_line_segment((p1, p2), color="black")
-        vis.add_line_segment((p2, p3), color="black")
-        vis.add_line_segment((p3, p4), color="black")
-        vis.add_line_segment((p4, p1), color="black")
+        vis.add_line_segment((p1, p2), color="black") # Dół
+        vis.add_line_segment((p2, p3), color="black") # Prawa
+        vis.add_line_segment((p3, p4), color="black") # Góra
+        vis.add_line_segment((p4, p1), color="black") # Lewa
     else:
-        # Domyślne wartości jak pusto
         min_x, max_x, min_y, max_y = 0, 800, 0, 800
 
-    # 5. Rysowanie linii podziału KD-Tree (BFS - poziomami)
+    # 4. Rysowanie wszystkich punktów (na niebiesko)
+    vis.add_point(points_tuples, color="blue", s=3)
+
+    # 5. Rysowanie linii podziału KD-Tree (BFS)
     if tree.root:
         queue = deque()
-        # Kolejka przechowuje: (węzeł, (min_x, max_x, min_y, max_y) obszaru węzła)
+        # Kolejka przechowuje: (węzeł, (min_x, max_x, min_y, max_y) obszaru tego węzła)
         queue.append((tree.root, (min_x, max_x, min_y, max_y)))
 
         while queue:
             node, bounds = queue.popleft()
-            if node is None:
+            
+            # Jeśli węzeł jest pusty lub jest liściem, nie rysujemy linii podziału
+            # (Liście w tym wariancie mają punkt, ale nie dzielą już przestrzeni)
+            if node is None or node.is_leaf():
                 continue
 
             bx_min, bx_max, by_min, by_max = bounds
-            px, py = node.point
-            
-            # Rysujemy linię podziału przechodzącą przez punkt węzła
-            if node.axis == 0: # Cięcie pionowe (X)
-                # Linia: x=px, od y_min do y_max tego obszaru
-                vis.add_line_segment(((px, by_min), (px, by_max)), color="gray", linewidth=1)
+            split = node.split_val  # Węzeł wewnętrzny ma split_val
+            axis = node.axis        # Oraz oś podziału
+
+            if axis == 0: # Cięcie pionowe (X)
+                # Rysujemy linię pionową na x = split
+                vis.add_line_segment(((split, by_min), (split, by_max)), color="gray", linewidth=1)
                 
-                # Dodajemy dzieci do kolejki z nowymi granicami
-                # Lewe dziecko: x od bx_min do px
-                queue.append((node.left, (bx_min, px, by_min, by_max)))
-                # Prawe dziecko: x od px do bx_max
-                queue.append((node.right, (px, bx_max, by_min, by_max)))
+                # Dodajemy dzieci do kolejki z zaktualizowanymi granicami X
+                # Lewe dziecko: x od obecnego min do split
+                queue.append((node.left, (bx_min, split, by_min, by_max)))
+                # Prawe dziecko: x od split do obecnego max
+                queue.append((node.right, (split, bx_max, by_min, by_max)))
                 
             else: # Cięcie poziome (Y)
-                # Linia: y=py, od x_min do x_max tego obszaru
-                vis.add_line_segment(((bx_min, py), (bx_max, py)), color="gray", linewidth=1)
+                # Rysujemy linię poziomą na y = split
+                vis.add_line_segment(((bx_min, split), (bx_max, split)), color="gray", linewidth=1)
                 
-                # Dodajemy dzieci
-                # Lewe dziecko (dół): y od by_min do py
-                queue.append((node.left, (bx_min, bx_max, by_min, py)))
-                # Prawe dziecko (góra): y od py do by_max
-                queue.append((node.right, (bx_min, bx_max, py, by_max)))
+                # Dodajemy dzieci do kolejki z zaktualizowanymi granicami Y
+                # Lewe dziecko (dół): y od obecnego min do split
+                queue.append((node.left, (bx_min, bx_max, by_min, split)))
+                # Prawe dziecko (góra): y od split do obecnego max
+                queue.append((node.right, (bx_min, bx_max, split, by_max)))
 
     return vis

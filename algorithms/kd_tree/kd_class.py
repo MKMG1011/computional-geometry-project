@@ -1,181 +1,152 @@
-import math
-
 class Node:
-    def __init__(self, point, axis, left=None, right=None, bbox=None, deleted=False):
-        self.point = point      
-        self.axis = axis        
+    # Leaf-storage: leaf has point, internal node has (axis, split_val) and children
+    def __init__(self, point=None, left=None, right=None, split_val=None, axis=None):
+        self.point = point
         self.left = left
         self.right = right
-        self.bbox = bbox        
-        self.deleted = deleted  
+        self.split_val = split_val
+        self.axis = axis
+
+    def is_leaf(self):
+        return self.point is not None
+
+
 class KDTree:
-
-    """
-    KD-Tree z obsługą:
-    - Build: O(N log N) (presorting)
-    - Query: O(sqrt(N)) (pruning)
-    - Insert: O(log N)
-    - Delete: O(log N) (lazy)
-    - Rebuild: O(N log N)
-    """
-    def __init__(self, points=None):
+    def __init__(self, points, eps=1e-9):
+        self.eps = eps
         self.root = None
-        if points:
-            self.build(points)
-    
-    def _point_in_rect(self, p, r):
-        x, y = p
-        x_min, x_max, y_min, y_max = r
-        return (x_min <= x <= x_max) and (y_min <= y <= y_max)
 
-    def _rects_intersect(self, a, b):
-        ax_min, ax_max, ay_min, ay_max = a
-        bx_min, bx_max, by_min, by_max = b
-        return not (ax_max < bx_min or bx_max < ax_min or ay_max < by_min or by_max < ay_min)
-    
-    def build(self, points):
-        """Buduje drzewo od zera (presorting)."""
-        points = list(points)
-        pts = [(p[0], p[1], i) for i, p in enumerate(points)]
-        
-        pts_x = sorted(pts, key=lambda t: (t[0], t[1], t[2]))
-        pts_y = sorted(pts, key=lambda t: (t[1], t[0], t[2]))
-        
-        self.root = self._build_rec(pts_x, pts_y, depth=0)
-
-    def rebuild(self):
-        """Zbiera wszystkie aktywne punkty i buduje drzewo na nowo (czyści 'deleted')."""
-        active_points = self.get_all_points()
-        self.build(active_points)
-
-    def _build_rec(self, pts_x, pts_y, depth):
-        n = len(pts_x)
-        if n == 0: return None
-        axis = depth % 2
-        mid = n // 2
-
-        if axis == 0:
-            px, py, pid = pts_x[mid]
-            left_x = pts_x[:mid]
-            right_x = pts_x[mid + 1:]
-            
-            left_ids = set(t[2] for t in left_x)
-            left_y = [t for t in pts_y if t[2] in left_ids]
-            right_y = [t for t in pts_y if (t[2] not in left_ids) and (t[2] != pid)]
-        else:
-            px, py, pid = pts_y[mid]
-            left_y = pts_y[:mid]
-            right_y = pts_y[mid + 1:]
-            
-            left_ids = set(t[2] for t in left_y)
-            left_x = [t for t in pts_x if t[2] in left_ids]
-            right_x = [t for t in pts_x if (t[2] not in left_ids) and (t[2] != pid)]
-
-        node = Node(point=(px, py), axis=axis)
-        node.left = self._build_rec(left_x, left_y, depth + 1)
-        node.right = self._build_rec(right_x, right_y, depth + 1)
-        node.bbox = self._compute_bbox(node)
-        return node
-
-    def _compute_bbox(self, node):
-        x, y = node.point
-        x_min, x_max, y_min, y_max = x, x, y, y
-        for ch in (node.left, node.right):
-            if ch and ch.bbox:
-                cx1, cx2, cy1, cy2 = ch.bbox
-                x_min, x_max = min(x_min, cx1), max(x_max, cx2)
-                y_min, y_max = min(y_min, cy1), max(y_max, cy2)
-        return (x_min, x_max, y_min, y_max)
-
-    # --- INSERT (O(log N)) ---
-    def insert(self, point):
-        """Dodaje punkt do drzewa (bez rebalansu)."""
-        def _insert_rec(node, point, depth):
-            if node is None:
-                new_node = Node(point, depth % 2)
-                new_node.bbox = (point[0], point[0], point[1], point[1])
-                return new_node
-            
-            bx1, bx2, by1, by2 = node.bbox
-            node.bbox = (min(bx1, point[0]), max(bx2, point[0]),
-                         min(by1, point[1]), max(by2, point[1]))
-
-            axis = node.axis
-            if point[axis] < node.point[axis]:
-                node.left = _insert_rec(node.left, point, depth + 1)
-            else:
-                node.right = _insert_rec(node.right, point, depth + 1)
-            return node
-
-        self.root = _insert_rec(self.root, point, 0)
-
-    
-    def delete(self, point):
-        """Oznacza punkt jako usunięty (Lazy Deletion)."""
-        node = self._find_node(self.root, point)
-        if node:
-            node.deleted = True
-
-    def _find_node(self, node, point):
-        if node is None: return None
-        if node.point == point and not node.deleted: return node
-        
-        axis = node.axis
-        if point[axis] < node.point[axis]:
-            return self._find_node(node.left, point)
-        elif point[axis] > node.point[axis]:
-             return self._find_node(node.right, point)
-        else:
-            res = self._find_node(node.right, point)
-            if res: return res
-            return self._find_node(node.left, point)
-
-    def range_query(self, x_min, x_max, y_min, y_max):
-        r = (x_min, x_max, y_min, y_max)
-        out = []
-        self._range_query_rec(self.root, r, out)
-        return out
-
-    def _range_query_rec(self, node, r, out):
-        if node is None: return
-
-
-        if node.bbox and not self._rects_intersect(node.bbox, r):
+        if not points:
             return
 
-        
-        if not node.deleted and self._point_in_rect(node.point, r):
-            out.append(node.point)
-           
+        pts = [(x, y, i) for i, (x, y) in enumerate(points)]
 
-        px, py = node.point
-        axis = node.axis
-        
-       
-        val = px if axis == 0 else py
-        r_min = r[0] if axis == 0 else r[2]
-        r_max = r[1] if axis == 0 else r[3]
+        # Tie-breakers for determinism
+        P_x = sorted(pts, key=lambda p: (p[0], p[1], p[2]))
+        P_y = sorted(pts, key=lambda p: (p[1], p[0], p[2]))
 
-        if r_min <= val:
-            self._range_query_rec(node.left, r, out)
-        if r_max >= val:
-            self._range_query_rec(node.right, r, out)
+        self.root = self._build_rec(P_x, P_y, depth=0)
 
-    def get_all_points(self):
-        """Zwraca listę wszystkich aktywnych punktów (do rebuilda)."""
-        pts = []
-        def _collect(node):
-            if not node: return
-            if not node.deleted: pts.append(node.point)
-            _collect(node.left)
-            _collect(node.right)
-        _collect(self.root)
-        return pts
+    def _build_rec(self, P_x, P_y, depth):
+        n = len(P_x)
+        if n == 0:
+            return None
+        if n == 1:
+            x, y, _ = P_x[0]
+            return Node(point=(x, y))
+
+        axis = depth % 2
+        mid = (n - 1) // 2
+
+        if axis == 0:
+            split_val = P_x[mid][0]
+            P1_x = P_x[:mid + 1]
+            P2_x = P_x[mid + 1:]
+
+            left_ids = {p[2] for p in P1_x}
+            P1_y = [p for p in P_y if p[2] in left_ids]
+            P2_y = [p for p in P_y if p[2] not in left_ids]
+        else:
+            split_val = P_y[mid][1]
+            P1_y = P_y[:mid + 1]
+            P2_y = P_y[mid + 1:]
+
+            left_ids = {p[2] for p in P1_y}
+            P1_x = [p for p in P_x if p[2] in left_ids]
+            P2_x = [p for p in P_x if p[2] not in left_ids]
+
+        left = self._build_rec(P1_x, P1_y, depth + 1)
+        right = self._build_rec(P2_x, P2_y, depth + 1)
+        return Node(left=left, right=right, split_val=split_val, axis=axis)
+
+    def query(self, region):
+        if self.root is None:
+            return []
+
+        x_min, x_max, y_min, y_max = region
+        results = []
+
+        inf = float("inf")
+        root_region = (-inf, inf, -inf, inf)
+        self._search_rec(self.root, (x_min, x_max, y_min, y_max), root_region, results)
+        return results
+
+    def _report_subtree(self, node, results):
+        if node is None:
+            return
+        if node.is_leaf():
+            results.append(node.point)
+            return
+        self._report_subtree(node.left, results)
+        self._report_subtree(node.right, results)
+
+    def _search_rec(self, v, R, region_v, results):
+        if v is None:
+            return
+
+        rx_min, rx_max, ry_min, ry_max = R
+        EPS = self.eps
+
+        if v.is_leaf():
+            x, y = v.point
+            if (rx_min - EPS <= x <= rx_max + EPS) and (ry_min - EPS <= y <= ry_max + EPS):
+                results.append(v.point)
+            return
+
+        min_x, max_x, min_y, max_y = region_v
+        split = v.split_val
+
+        # Left is closed (<= split), right is open (> split) conceptually.
+        # We model the "open" side via EPS in tests.
+
+        if v.axis == 0:
+            region_lc = (min_x, split, min_y, max_y)
+            region_rc = (split, max_x, min_y, max_y)
+        else:
+            region_lc = (min_x, max_x, min_y, split)
+            region_rc = (min_x, max_x, split, max_y)
+
+        def classify(reg, is_right_child):
+            r_xmin, r_xmax, r_ymin, r_ymax = reg
+
+            # INSIDE: reg ⊆ R
+            if (r_xmin >= rx_min - EPS and r_xmax <= rx_max + EPS and
+                r_ymin >= ry_min - EPS and r_ymax <= ry_max + EPS):
+                return "INSIDE"
+
+            # OUTSIDE: reg ∩ R = ∅
+            if r_xmax < rx_min - EPS or r_xmin > rx_max + EPS or r_ymax < ry_min - EPS or r_ymin > ry_max + EPS:
+                return "OUTSIDE"
+
+            # Extra pruning for the open boundary on the right child:
+            # If the query touches the split line but doesn't go past it, right side shouldn't be visited.
+            if is_right_child:
+                if v.axis == 0:
+                    if rx_max <= split + EPS:  # query does not reach x > split
+                        return "OUTSIDE"
+                else:
+                    if ry_max <= split + EPS:  # query does not reach y > split
+                        return "OUTSIDE"
+
+            return "INTERSECTS"
+
+        st = classify(region_lc, is_right_child=False)
+        if st == "INSIDE":
+            self._report_subtree(v.left, results)
+        elif st == "INTERSECTS":
+            self._search_rec(v.left, R, region_lc, results)
+
+        st = classify(region_rc, is_right_child=True)
+        if st == "INSIDE":
+            self._report_subtree(v.right, results)
+        elif st == "INTERSECTS":
+            self._search_rec(v.right, R, region_rc, results)
+
 
 if __name__ == "__main__":
-    punkty = [(2, 3), (5, 4), (9, 6), (4, 7), (8, 1), (7, 2), (4, 2)]
+    punkty = [(2, 3), (5, 4), (9, 6), (4, 7), (8, 1), (7, 2)]
     drzewo = KDTree(punkty)
-    
-    # Szukamy punktów w prostokącie x=[0, 6], y=[0, 5]
-    znalezione = drzewo.range_query(0, 6, 0, 5)
-    print(f"Punkty w obszarze: {znalezione}")
+
+    query_rect = (0, 8, 0, 5)
+    wynik = drzewo.query(query_rect)
+    print(f"Punkty w obszarze {query_rect}: {wynik}")
