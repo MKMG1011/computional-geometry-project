@@ -1,18 +1,24 @@
 from collections import deque
 from visualizer.main import Visualizer
-from algorithms.quadtree import QuadTree, Rectangle
+from algorithms.quadtree.quadtree import QuadTree, Rectangle, Point
 
-def quadtree_vis(points_list, boundary, k):
+def quadtree_vis(raw_points_list, boundary, k):
     vis = Visualizer()
-    #boundary = Rectangle(400, 400, 400, 400)
-    qt = QuadTree(boundary, k)
+    
+    points_objects = []
+    for p_data in raw_points_list:
+        if isinstance(p_data, (tuple, list)):
+            points_objects.append(Point(p_data[0], p_data[1]))
+        else:
+            points_objects.append(p_data)
 
-    for p in points_list:
+    qt = QuadTree(boundary, k)
+    for p in points_objects:
         qt.insert(p)
 
-    all_points_tuples = [(p.x, p.y) for p in points_list]
-    vis.add_point(all_points_tuples, color="blue")
-    
+    vis_coords = [(p.x, p.y) for p in points_objects]
+    vis.add_point(vis_coords, color="blue")
+
     bx, by, bw, bh = boundary.x, boundary.y, boundary.w, boundary.h
     p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
     p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
