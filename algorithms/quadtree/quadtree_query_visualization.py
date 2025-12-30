@@ -5,10 +5,8 @@ from algorithms.quadtree.quadtree import QuadTree, Point, build_quadtree
 def visualize_quadtree_query(raw_points_list, query_rect, k=4):
     vis = Visualizer()
 
-    # 1. Budujemy drzewo automatycznie (samo oblicza granice)
     qt_root = build_quadtree(raw_points_list, capacity=k)
 
-    # 2. Rysujemy punkty
     vis_points = []
     for p in raw_points_list:
         if isinstance(p, (tuple, list)):
@@ -18,7 +16,6 @@ def visualize_quadtree_query(raw_points_list, query_rect, k=4):
             
     vis.add_point(vis_points, color='blue')
 
-    # 3. Rysujemy główną ramkę (pobraną z drzewa)
     bx, by, bw, bh = qt_root.boundary.x, qt_root.boundary.y, qt_root.boundary.w, qt_root.boundary.h
     p1 = (bx - bw, by - bh)
     p2 = (bx + bw, by - bh)
@@ -30,7 +27,6 @@ def visualize_quadtree_query(raw_points_list, query_rect, k=4):
     vis.add_line_segment((p3, p4), color='black')
     vis.add_line_segment((p4, p1), color='black')
 
-    # 4. Rysujemy siatkę
     queue = deque([qt_root])
     grid_lines = []
 
@@ -49,7 +45,6 @@ def visualize_quadtree_query(raw_points_list, query_rect, k=4):
             
     vis.add_line_segment(grid_lines, color='lightgray', linewidth=1)
 
-    # 5. Rysujemy prostokąt zapytania
     qx, qy, qw, qh = query_rect.x, query_rect.y, query_rect.w, query_rect.h
     q_p1 = (qx - qw, qy - qh)
     q_p2 = (qx + qw, qy - qh)
@@ -61,12 +56,10 @@ def visualize_quadtree_query(raw_points_list, query_rect, k=4):
     ]
     vis.add_line_segment(query_lines, color='purple', linewidth=2)
 
-    # 6. Animacja
     def visit(node):
         if not node.boundary.intersects(query_rect):
             return
 
-        # Sprawdzamy punkty TYLKO w liściach (bo to wersja leaf-only)
         for p in node.points:
             head = vis.add_point([(p.x, p.y)], color='orange', s=30, zorder=20)
             
