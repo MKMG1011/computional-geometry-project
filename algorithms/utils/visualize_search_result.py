@@ -6,6 +6,26 @@ from algorithms.kd_tree.kd_class import KDTree
 def visualize_search_result(points, search_area, found_points, algorithm='quadtree'):
     vis = Visualizer()
     
+    k = 4
+    k = 4
+
+    xs = [p[0] if isinstance(p, (tuple, list)) else p.x for p in points]
+    ys = [p[1] if isinstance(p, (tuple, list)) else p.y for p in points]
+
+    xs += [search_area.x - search_area.w, search_area.x + search_area.w]
+    ys += [search_area.y - search_area.h, search_area.y + search_area.h]
+    min_x, max_x = min(xs), max(xs)
+    min_y, max_y = min(ys), max(ys)
+
+    cx = (min_x + max_x) / 2
+    cy = (min_y + max_y) / 2
+    half = max(max_x - min_x, max_y - min_y) / 2
+
+    pad = 30  
+    screen_boundary = Rectangle(cx, cy, half + pad, half + pad)
+    min_screen = cx - (half + pad)
+    max_screen = cx + (half + pad)
+
     points_objects = []
     kdtree_points = []
     
@@ -19,7 +39,15 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
             kdtree_points.append((p_data.x, p_data.y))
 
     vis_coords = [(p.x, p.y) for p in points_objects]
-    vis.add_point(vis_coords, color='blue')
+    vis.add_point(vis_coords, color='blue', s=2)
+
+    bx, by, bw, bh = screen_boundary.x, screen_boundary.y, screen_boundary.w, screen_boundary.h
+    p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
+    p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
+    vis.add_line_segment(((p1, p2)), color='black')
+    vis.add_line_segment(((p2, p3)), color='black')
+    vis.add_line_segment(((p3, p4)), color='black')
+    vis.add_line_segment(((p4, p1)), color='black')
 
     if algorithm == 'quadtree':
         # Tu używamy build_quadtree, więc boundary oblicza się samo
@@ -110,6 +138,6 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
             else:
                 found_coords.append((p_data.x, p_data.y))
         
-        vis.add_point(found_coords, color='green', s=30)
+        vis.add_point(found_coords, color='green', s=5)
 
     return vis

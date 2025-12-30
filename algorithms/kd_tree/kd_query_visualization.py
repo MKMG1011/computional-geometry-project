@@ -2,18 +2,14 @@ from collections import deque
 from visualizer.main import Visualizer
 
 def visualize_kdtree_query2(tree, points_list, query_rect):
-    """
-    Wizualizacja zapytania KD-Tree.
-    Kolory: Niebieski (nieodwiedzone/pruning), Zielony (trafione), Czerwony (pudło), Pomarańczowy (obszar węzła).
-    """
+   
     vis = Visualizer()
     
-    # Konwersja punktów
+    
     points_tuples = []
     for p in points_list:
         points_tuples.append((p.x, p.y) if hasattr(p, 'x') else tuple(p))
 
-    # Obliczanie granic świata
     if points_tuples:
         xs = [p[0] for p in points_tuples]
         ys = [p[1] for p in points_tuples]
@@ -24,10 +20,8 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
 
     root_region = (min_x, max_x, min_y, max_y)
 
-    # Rysowanie punktów (start: niebieskie)
     vis.add_point(points_tuples, color='blue', s=15)
 
-    # Rysowanie linii podziału (tło)
     if tree.root:
         lines = []
         queue = deque([(tree.root, root_region)])
@@ -38,18 +32,17 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
             bx1, bx2, by1, by2 = bounds
             split = node.split_val
             
-            if node.axis == 0: # Pionowa
+            if node.axis == 0: 
                 lines.append(((split, by1), (split, by2)))
                 queue.append((node.left, (bx1, split, by1, by2)))
                 queue.append((node.right, (split, bx2, by1, by2)))
-            else: # Pozioma
+            else: 
                 lines.append(((bx1, split), (bx2, split)))
                 queue.append((node.left, (bx1, bx2, by1, split)))
                 queue.append((node.right, (bx1, bx2, split, by2)))
         
         vis.add_line_segment(lines, color='lightgray', linewidth=1)
 
-    # Rysowanie prostokąta zapytania (fioletowy)
     qx1, qx2, qy1, qy2 = query_rect
     q_lines = [
         ((qx1, qy1), (qx2, qy1)), ((qx2, qy1), (qx2, qy2)),
@@ -59,7 +52,7 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
 
 
     def highlight_subtree(node, color):
-        """Koloruje całe poddrzewo (np. na zielono przy INSIDE)."""
+       
         if node is None: return
         if node.is_leaf():
             vis.add_point([node.point], color=color, s=20)
@@ -70,7 +63,7 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
     def visit(node, region):
         if node is None: return
 
-        # Rysujemy aktualnie badany obszar (pomarańczowy)
+        
         rx1, rx2, ry1, ry2 = region
         head_rect = [
             ((rx1, ry1), (rx2, ry1)), ((rx2, ry1), (rx2, ry2)),
@@ -78,19 +71,19 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
         ]
         head_fig = vis.add_line_segment(head_rect, color='orange', linewidth=2)
         
-        # Sprawdzanie LIŚCIA
+       
         if node.is_leaf():
             x, y = node.point
             EPS = tree.eps
             if (qx1 - EPS <= x <= qx2 + EPS) and (qy1 - EPS <= y <= qy2 + EPS):
-                vis.add_point([node.point], color='green', s=20) # Trafiony
+                vis.add_point([node.point], color='green', s=20) 
             else:
-                vis.add_point([node.point], color='red', s=20)   # Pudło
+                vis.add_point([node.point], color='red', s=20)   
             
             vis.remove_figure(head_fig)
             return
 
-        # Sprawdzanie WĘZŁA WEWNĘTRZNEGO
+        
         split = node.split_val
         if node.axis == 0:
             reg_lc = (rx1, split, ry1, ry2)
@@ -101,19 +94,15 @@ def visualize_kdtree_query2(tree, points_list, query_rect):
 
         def classify(reg):
             r1, r2, s1, s2 = reg
-            # INSIDE: obszar węzła w całości w zapytaniu
+           
             if r1 >= qx1 and r2 <= qx2 and s1 >= qy1 and s2 <= qy2: return "INSIDE"
-            # OUTSIDE: obszary rozłączne
             if r2 < qx1 or r1 > qx2 or s2 < qy1 or s1 > qy2: return "OUTSIDE"
             return "INTERSECTS"
 
-        # Rekurencja Lewa
         st_lc = classify(reg_lc)
         if st_lc == "INSIDE": highlight_subtree(node.left, 'green')
         elif st_lc == "INTERSECTS": visit(node.left, reg_lc)
-        # else: OUTSIDE 
 
-        # Rekurencja Prawa
         st_rc = classify(reg_rc)
         if st_rc == "INSIDE": highlight_subtree(node.right, 'green')
         elif st_rc == "INTERSECTS": visit(node.right, reg_rc)

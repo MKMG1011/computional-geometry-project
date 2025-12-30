@@ -1,4 +1,3 @@
-# klasa reprezentująca węzeł drzewa KD, może być liściem lub węzłem wewnętrznym
 class Node:
     def __init__(self, point=None, left=None, right=None, split_val=None, axis=None):
         self.point = point
@@ -10,7 +9,6 @@ class Node:
     def is_leaf(self):
         return self.point is not None
 
-
 class KDTree:
     def __init__(self, points, eps=1e-9):
         self.eps = eps
@@ -21,7 +19,7 @@ class KDTree:
 
         pts = [(x, y, i) for i, (x, y) in enumerate(points)]
 
-        # sortowanie punktów według x i y, żeby ułtwić budowę drzewa
+        
         P_x = sorted(pts, key=lambda p: (p[0], p[1], p[2]))
         P_y = sorted(pts, key=lambda p: (p[1], p[0], p[2]))
 
@@ -33,7 +31,7 @@ class KDTree:
             return None
         if n == 1:
             x, y, _ = P_x[0]
-            return Node(point=(x, y))  # stworzenie liścia
+            return Node(point=(x, y))  
 
         axis = depth % 2
         mid = (n - 1) // 2
@@ -55,10 +53,10 @@ class KDTree:
             P1_x = [p for p in P_x if p[2] in left_ids]
             P2_x = [p for p in P_x if p[2] not in left_ids]
 
-        # Rekurencyjne budowanie lewego i prawego poddrzewa
+        
         left = self._build_rec(P1_x, P1_y, depth + 1)
         right = self._build_rec(P2_x, P2_y, depth + 1)
-        return Node(left=left, right=right, split_val=split_val, axis=axis)  # stworzenie węzła wewnętrznego
+        return Node(left=left, right=right, split_val=split_val, axis=axis)  
 
     def query(self, region):
         if self.root is None:
@@ -72,7 +70,6 @@ class KDTree:
         self._search_rec(self.root, (x_min, x_max, y_min, y_max), root_region, results)
         return results
 
-    # funkcja rekurencyjnie dodająca punkty z poddrzewa do wyników
     def _report_subtree(self, node, results):
         if node is None:
             return
@@ -82,12 +79,6 @@ class KDTree:
         self._report_subtree(node.left, results)
         self._report_subtree(node.right, results)
 
-    # ------------------------------
-    # MIKRO-OPTYMALIZACJA QUERY:
-    # - zamiast inner function classify() (tworzonej w każdej rekurencji),
-    #   robimy metodę
-    # - zamiast stringów używamy intów
-    # ------------------------------
     _OUTSIDE = 0
     _INSIDE = 1
     _INTERSECTS = 2
@@ -95,23 +86,20 @@ class KDTree:
     def _classify_region(self, reg, rx_min, rx_max, ry_min, ry_max, split, axis, EPS, is_right_child):
         r_xmin, r_xmax, r_ymin, r_ymax = reg
 
-        # INSIDE
         if (r_xmin >= rx_min - EPS and r_xmax <= rx_max + EPS and
             r_ymin >= ry_min - EPS and r_ymax <= ry_max + EPS):
             return self._INSIDE
 
-        # OUTSIDE
         if (r_xmax < rx_min - EPS or r_xmin > rx_max + EPS or
             r_ymax < ry_min - EPS or r_ymin > ry_max + EPS):
             return self._OUTSIDE
 
-        # uniemożliwenie wejścia na prawą stronę regionu jeśli zapytanie tam nie sięga
         if is_right_child:
             if axis == 0:
-                if rx_max <= split + EPS:  # zapytanie nie obejmuje x > split
+                if rx_max <= split + EPS:  
                     return self._OUTSIDE
             else:
-                if ry_max <= split + EPS:  # zapytanie nie obejmuje y > split
+                if ry_max <= split + EPS:  
                     return self._OUTSIDE
 
         return self._INTERSECTS
@@ -132,7 +120,6 @@ class KDTree:
         min_x, max_x, min_y, max_y = region_v
         split = v.split_val
 
-        # lewy podobszar określamy jako domknięty, prawy jako otwwarty
         if v.axis == 0:
             region_lc = (min_x, split, min_y, max_y)
             region_rc = (split, max_x, min_y, max_y)
@@ -140,7 +127,6 @@ class KDTree:
             region_lc = (min_x, max_x, min_y, split)
             region_rc = (min_x, max_x, split, max_y)
 
-        # Klasyfikujemy lewe i prawe poddrzewo na podstawie przecięć ich regionów z zapytaniem
         status = self._classify_region(region_lc, rx_min, rx_max, ry_min, ry_max, split, v.axis, EPS, is_right_child=False)
         if status == self._INSIDE:
             self._report_subtree(v.left, results)
