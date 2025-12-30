@@ -44,10 +44,7 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
     bx, by, bw, bh = screen_boundary.x, screen_boundary.y, screen_boundary.w, screen_boundary.h
     p1, p2 = (bx - bw, by - bh), (bx + bw, by - bh)
     p3, p4 = (bx + bw, by + bh), (bx - bw, by + bh)
-    vis.add_line_segment(((p1, p2)), color='black')
-    vis.add_line_segment(((p2, p3)), color='black')
-    vis.add_line_segment(((p3, p4)), color='black')
-    vis.add_line_segment(((p4, p1)), color='black')
+   
 
     if algorithm == 'quadtree':
         # Tu używamy build_quadtree, więc boundary oblicza się samo
@@ -59,10 +56,7 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
         p3 = (bx + bw, by + bh)
         p4 = (bx - bw, by + bh)
 
-        vis.add_line_segment((p1, p2), color='black')
-        vis.add_line_segment((p2, p3), color='black')
-        vis.add_line_segment((p3, p4), color='black')
-        vis.add_line_segment((p4, p1), color='black')
+       
 
         queue = deque([qt])
         grid_lines = []
