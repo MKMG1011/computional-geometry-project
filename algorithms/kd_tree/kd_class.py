@@ -13,13 +13,10 @@ class KDTree:
     def __init__(self, points, eps=1e-9):
         self.eps = eps
         self.root = None
-
         if not points:
             return
-
         pts = [(x, y, i) for i, (x, y) in enumerate(points)]
 
-        
         P_x = sorted(pts, key=lambda p: (p[0], p[1], p[2]))
         P_y = sorted(pts, key=lambda p: (p[1], p[0], p[2]))
 
@@ -32,15 +29,12 @@ class KDTree:
         if n == 1:
             x, y, _ = P_x[0]
             return Node(point=(x, y))  
-
         axis = depth % 2
         mid = (n - 1) // 2
-
         if axis == 0:
             split_val = P_x[mid][0]
             P1_x = P_x[:mid + 1]
             P2_x = P_x[mid + 1:]
-
             left_ids = {p[2] for p in P1_x}
             P1_y = [p for p in P_y if p[2] in left_ids]
             P2_y = [p for p in P_y if p[2] not in left_ids]
@@ -52,8 +46,6 @@ class KDTree:
             left_ids = {p[2] for p in P1_y}
             P1_x = [p for p in P_x if p[2] in left_ids]
             P2_x = [p for p in P_x if p[2] not in left_ids]
-
-        
         left = self._build_rec(P1_x, P1_y, depth + 1)
         right = self._build_rec(P2_x, P2_y, depth + 1)
         return Node(left=left, right=right, split_val=split_val, axis=axis)  
@@ -93,15 +85,6 @@ class KDTree:
         if (r_xmax < rx_min - EPS or r_xmin > rx_max + EPS or
             r_ymax < ry_min - EPS or r_ymin > ry_max + EPS):
             return self._OUTSIDE
-
-        if is_right_child:
-            if axis == 0:
-                if rx_max <= split + EPS:  
-                    return self._OUTSIDE
-            else:
-                if ry_max <= split + EPS:  
-                    return self._OUTSIDE
-
         return self._INTERSECTS
 
     def _search_rec(self, v, R, region_v, results):
@@ -140,12 +123,5 @@ class KDTree:
             self._search_rec(v.right, R, region_rc, results)
 
 
-if __name__ == "__main__":
-    punkty = [(2, 3), (5, 4), (9, 6), (4, 7), (8, 1), (7, 2)]
-    drzewo = KDTree(punkty)
-
-    query_rect = (0, 8, 0, 5)
-    wynik = drzewo.query(query_rect)
-    print(f"Punkty w obszarze {query_rect}: {wynik}")
 
 
