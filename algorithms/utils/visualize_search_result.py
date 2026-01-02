@@ -18,11 +18,20 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
             points_objects.append(p_data)
             kdtree_points.append((p_data.x, p_data.y))
 
+    if kdtree_points:
+        xs = [p[0] for p in kdtree_points]
+        ys = [p[1] for p in kdtree_points]
+        margin = 10 
+        min_x, max_x = min(xs) - margin, max(xs) + margin
+        min_y, max_y = min(ys) - margin, max(ys) + margin
+    else:
+        
+        min_x, max_x, min_y, max_y = 0, 100, 0, 100
+
     vis_coords = [(p.x, p.y) for p in points_objects]
-    vis.add_point(vis_coords, color='blue', s = 15)
+    vis.add_point(vis_coords, color='blue', s=15)
 
     if algorithm == 'quadtree':
-        # Tu używamy build_quadtree, więc boundary oblicza się samo
         qt = build_quadtree(points_objects, capacity=4)
 
         bx, by, bw, bh = qt.boundary.x, qt.boundary.y, qt.boundary.w, qt.boundary.h
@@ -55,14 +64,10 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
         vis.add_line_segment(grid_lines, color='lightgray', linewidth=1)
 
     elif algorithm == 'kdtree':
-        min_screen, max_screen = 0, 800
-        
-        # Ramka ekranu dla KD-Tree (bo ono nie ma boundary w sobie)
-        
-
+  
         tree = KDTree(kdtree_points)
         if tree.root:
-            queue = deque([(tree.root, min_screen, max_screen, min_screen, max_screen)])
+            queue = deque([(tree.root, min_x, max_x, min_y, max_y)])
             kd_lines = []
 
             while queue:
@@ -71,15 +76,14 @@ def visualize_search_result(points, search_area, found_points, algorithm='quadtr
                 if node.left is None and node.right is None:
                     continue
 
+                split = node.split_val
                 if node.axis == 0: 
-                    split = node.split_val
                     kd_lines.append(((split, y_min), (split, y_max)))
                     if node.left:
                         queue.append((node.left, x_min, split, y_min, y_max))
                     if node.right:
                         queue.append((node.right, split, x_max, y_min, y_max))
                 else: 
-                    split = node.split_val
                     kd_lines.append(((x_min, split), (x_max, split)))
                     if node.left:
                         queue.append((node.left, x_min, x_max, y_min, split))

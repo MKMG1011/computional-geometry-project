@@ -75,8 +75,8 @@ class KDTree:
     _INSIDE = 1
     _INTERSECTS = 2
 
-    def _classify_region(self, reg, rx_min, rx_max, ry_min, ry_max, split, axis, EPS, is_right_child):
-        r_xmin, r_xmax, r_ymin, r_ymax = reg
+    def _classify_region(self, region, rx_min, rx_max, ry_min, ry_max, EPS):
+        r_xmin, r_xmax, r_ymin, r_ymax = region
 
         if (r_xmin >= rx_min - EPS and r_xmax <= rx_max + EPS and
             r_ymin >= ry_min - EPS and r_ymax <= ry_max + EPS):
@@ -87,11 +87,11 @@ class KDTree:
             return self._OUTSIDE
         return self._INTERSECTS
 
-    def _search_rec(self, v, R, region_v, results):
+    def _search_rec(self, v, query_R, region_v, results):
         if v is None:
             return
 
-        rx_min, rx_max, ry_min, ry_max = R
+        rx_min, rx_max, ry_min, ry_max = query_R
         EPS = self.eps
 
         if v.is_leaf():
@@ -110,18 +110,15 @@ class KDTree:
             region_lc = (min_x, max_x, min_y, split)
             region_rc = (min_x, max_x, split, max_y)
 
-        status = self._classify_region(region_lc, rx_min, rx_max, ry_min, ry_max, split, v.axis, EPS, is_right_child=False)
+        status = self._classify_region(region_lc, rx_min, rx_max, ry_min, ry_max, EPS)
         if status == self._INSIDE:
             self._report_subtree(v.left, results)
         elif status == self._INTERSECTS:
-            self._search_rec(v.left, R, region_lc, results)
+            self._search_rec(v.left, query_R, region_lc, results)
 
-        status = self._classify_region(region_rc, rx_min, rx_max, ry_min, ry_max, split, v.axis, EPS, is_right_child=True)
+        status = self._classify_region(region_rc, rx_min, rx_max, ry_min, ry_max, EPS)
         if status == self._INSIDE:
             self._report_subtree(v.right, results)
         elif status == self._INTERSECTS:
-            self._search_rec(v.right, R, region_rc, results)
-
-
-
+            self._search_rec(v.right, query_R, region_rc, results)
 

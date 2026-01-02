@@ -93,7 +93,7 @@ def visualize_kdtree_animation(tree, points_list, query_rect):
             region_rc = (min_x, max_x, split, max_y)
 
         
-        status_lc = tree._classify_region(region_lc, rx_min, rx_max, ry_min, ry_max, split, node.axis, EPS, is_right_child=False)
+        status_lc = tree._classify_region(region_lc, rx_min, rx_max, ry_min, ry_max,EPS)
         if status_lc == tree._INSIDE:
             gp = vis.add_polygon(get_poly_coords(region_lc), color='green', alpha=0.4)
             report_subtree_vis(node.left)
@@ -105,7 +105,7 @@ def visualize_kdtree_animation(tree, points_list, query_rect):
             vis.remove_figure(rp)
 
         
-        status_rc = tree._classify_region(region_rc, rx_min, rx_max, ry_min, ry_max, split, node.axis, EPS, is_right_child=True)
+        status_rc = tree._classify_region(region_rc, rx_min, rx_max, ry_min, ry_max, EPS)
         if status_rc == tree._INSIDE:
             gp = vis.add_polygon(get_poly_coords(region_rc), color='green', alpha=0.4)
             report_subtree_vis(node.right)
