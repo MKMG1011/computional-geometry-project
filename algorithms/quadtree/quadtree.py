@@ -45,9 +45,11 @@ class Rectangle:
         return cls(center_x, center_y, max_dim, max_dim)
 
 class QuadTree:
-    def __init__(self, boundary, capacity=4):
+    def __init__(self, boundary, capacity=4, depth=0, max_depth=10):
         self.boundary = boundary
         self.capacity = capacity
+        self.depth = depth
+        self.max_depth = max_depth
         self.points = []
         self.divided = False
         
@@ -67,10 +69,10 @@ class QuadTree:
         se = Rectangle(x + w/2, y + h/2, w/2, h/2)
         sw = Rectangle(x - w/2, y + h/2, w/2, h/2)
 
-        self.northeast = QuadTree(ne, self.capacity)
-        self.northwest = QuadTree(nw, self.capacity)
-        self.southeast = QuadTree(se, self.capacity)
-        self.southwest = QuadTree(sw, self.capacity)
+        self.northeast = QuadTree(ne, self.capacity, self.depth + 1, self.max_depth)
+        self.northwest = QuadTree(nw, self.capacity, self.depth + 1, self.max_depth)
+        self.southeast = QuadTree(se, self.capacity, self.depth + 1, self.max_depth)
+        self.southwest = QuadTree(sw, self.capacity, self.depth + 1, self.max_depth)
         
         self.divided = True
 
@@ -83,7 +85,7 @@ class QuadTree:
 
         self.points.append(point)
 
-        if len(self.points) > self.capacity:
+        if len(self.points) > self.capacity and self.depth < self.max_depth:
             self.subdivide()
             while self.points:
                 p = self.points.pop()
@@ -114,7 +116,7 @@ class QuadTree:
 
         return found_points
 
-def build_quadtree(points_list, capacity=4):
+def build_quadtree(points_list, capacity=4, max_depth=10):
     points_objects = []
     for p in points_list:
         if isinstance(p, (tuple, list)):
@@ -124,7 +126,7 @@ def build_quadtree(points_list, capacity=4):
             
     optimal_boundary = Rectangle.from_points(points_objects)
     
-    qt = QuadTree(optimal_boundary, capacity)
+    qt = QuadTree(optimal_boundary, capacity, 0, max_depth)
     for p in points_objects:
         qt.insert(p)
 
