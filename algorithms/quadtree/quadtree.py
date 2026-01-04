@@ -45,7 +45,7 @@ class Rectangle:
         return cls(center_x, center_y, max_dim, max_dim)
 
 class QuadTree:
-    def __init__(self, boundary, capacity=4, depth=0, max_depth=10):
+    def __init__(self, boundary, capacity=4, depth=0, max_depth=20):
         self.boundary = boundary
         self.capacity = capacity
         self.depth = depth
