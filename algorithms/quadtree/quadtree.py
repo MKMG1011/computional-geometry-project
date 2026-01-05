@@ -45,7 +45,7 @@ class Rectangle:
         return cls(center_x, center_y, max_dim, max_dim)
 
 class QuadTree:
-    def __init__(self, boundary, capacity=4, depth=0, max_depth=20):
+    def __init__(self, boundary, capacity=4, depth=0, max_depth=24):
         self.boundary = boundary
         self.capacity = capacity
         self.depth = depth
@@ -116,7 +116,7 @@ class QuadTree:
 
         return found_points
 
-def build_quadtree(points_list, capacity=4, max_depth=10):
+def build_quadtree(points_list, capacity=4, max_depth=24):
     points_objects = []
     for p in points_list:
         if isinstance(p, (tuple, list)):
